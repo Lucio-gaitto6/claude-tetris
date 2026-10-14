@@ -12,7 +12,7 @@ Open `index.html` directly in a browser, or serve the folder (e.g. `python -m ht
 
 ## Architecture
 
-All game logic lives in `game.js` (a single classic script loaded by `index.html`, `'use strict'`, no modules). It relies on fixed DOM ids in `index.html` (`board`, `next-canvas`, `score`, `lines`, `level`, `overlay`, `overlay-title`, `overlay-score`, `restart-btn`) — renaming one requires updating both files. Canvas sizes are hardcoded in the HTML (`300x600` board = `COLS*BLOCK` x `ROWS*BLOCK`; `120x120` next preview), so changing `COLS`/`ROWS`/`BLOCK` in `game.js` also requires changing the canvas attributes.
+All game logic lives in `game.js` (a single classic script loaded by `index.html`, `'use strict'`, no modules). It relies on fixed DOM ids in `index.html` (`board`, `next-canvas`, `score`, `lines`, `level`, `overlay`, `overlay-title`, `overlay-score`, `restart-btn`, `theme-toggle`) — renaming one requires updating both files. Canvas sizes are hardcoded in the HTML (`300x600` board = `COLS*BLOCK` x `ROWS*BLOCK`; `120x120` next preview), so changing `COLS`/`ROWS`/`BLOCK` in `game.js` also requires changing the canvas attributes.
 
 Key design points:
 - **State is module-level `let` globals** (`board`, `current`, `next`, `score`, `lines`, `level`, `paused`, `gameOver`, `dropInterval`, ...), reset in `init()`, which is also the restart handler.
