@@ -13,6 +13,7 @@ const COLORS = [
   '#e57373', // Z - red
   '#90caf9', // J - pale blue
   '#ffb74d', // L - orange
+  '#d32f2f', // TNT - red
 ];
 
 const COLORS_LIGHT = [
@@ -24,6 +25,7 @@ const COLORS_LIGHT = [
   '#e53935', // Z
   '#1e88e5', // J
   '#fb8c00', // L
+  '#c62828', // TNT
 ];
 
 const PIECES = [
@@ -35,9 +37,13 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  [[8]],                                       // TNT (power-up)
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+const TNT_TYPE = 8;
+const TNT_CHANCE = 0.1;
+const TNT_ROWS = 3;
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -51,19 +57,23 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeBtn = document.getElementById('theme-toggle');
+const tntStatusEl = document.getElementById('tnt-status');
 
 let lightMode = false;
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, tntReady;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
-function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+function makePiece(type) {
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+function randomPiece() {
+  return makePiece(Math.floor(Math.random() * 7) + 1);
 }
 
 function collide(shape, ox, oy) {
@@ -117,13 +127,40 @@ function clearLines() {
       r++;
     }
   }
-  if (cleared) {
-    lines += cleared;
-    score += (LINE_SCORES[cleared] || 0) * level;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
-    updateHUD();
+  addLines(cleared);
+}
+
+function addLines(n) {
+  if (!n) return;
+  lines += n;
+  score += (LINE_SCORES[n] || 0) * level;
+  level = Math.floor(lines / 10) + 1;
+  dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+  for (let i = 0; i < n; i++) {
+    if (Math.random() < TNT_CHANCE) setTntReady(true);
   }
+  updateHUD();
+}
+
+function setTntReady(ready) {
+  tntReady = ready;
+  tntStatusEl.classList.toggle('hidden', !ready);
+}
+
+function activateTnt() {
+  if (!tntReady || current.type === TNT_TYPE) return;
+  next = makePiece(current.type);
+  current = makePiece(TNT_TYPE);
+  setTntReady(false);
+  drawNext();
+  if (collide(current.shape, current.x, current.y)) endGame();
+}
+
+function explode() {
+  const top = Math.min(Math.max(current.y - 1, 0), ROWS - TNT_ROWS);
+  board.splice(top, TNT_ROWS);
+  for (let i = 0; i < TNT_ROWS; i++) board.unshift(new Array(COLS).fill(0));
+  addLines(TNT_ROWS);
 }
 
 function ghostY() {
@@ -150,8 +187,12 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
-  clearLines();
+  if (current.type === TNT_TYPE) {
+    explode();
+  } else {
+    merge();
+    clearLines();
+  }
   spawn();
 }
 
@@ -179,6 +220,13 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   // highlight
   context.fillStyle = 'rgba(255,255,255,0.12)';
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  if (colorIndex === TNT_TYPE) {
+    context.fillStyle = '#fff';
+    context.font = `bold ${Math.floor(size * 0.38)}px system-ui, sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('TNT', x * size + size / 2, y * size + size / 2 + 1);
+  }
   context.globalAlpha = 1;
 }
 
@@ -282,6 +330,7 @@ function init() {
   dropAccum = 0;
   lastTime = performance.now();
   next = randomPiece();
+  setTntReady(false);
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
@@ -305,6 +354,9 @@ document.addEventListener('keydown', e => {
     case 'ArrowUp':
     case 'KeyX':
       tryRotate();
+      break;
+    case 'KeyT':
+      activateTnt();
       break;
     case 'Space':
       e.preventDefault();

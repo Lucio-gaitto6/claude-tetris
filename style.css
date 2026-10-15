@@ -122,6 +122,27 @@ body {
   border-radius: 4px;
 }
 
+/* ---- TNT ---- */
+.tnt-status {
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-align: center;
+  padding: 8px 0;
+  border-radius: 6px;
+  animation: tnt-pulse 0.9s ease-in-out infinite;
+}
+
+.tnt-status.hidden {
+  display: none;
+}
+
+@keyframes tnt-pulse {
+  50% { opacity: 0.55; }
+}
+
 /* ---- Controles ---- */
 .controls ul {
   list-style: none;
