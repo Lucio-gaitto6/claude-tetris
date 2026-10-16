@@ -49,6 +49,8 @@ const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
 const nextCtx = nextCanvas.getContext('2d');
+const holdCanvas = document.getElementById('hold-canvas');
+const holdCtx = holdCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
@@ -61,7 +63,7 @@ const tntStatusEl = document.getElementById('tnt-status');
 
 let lightMode = false;
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, tntReady;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, tntReady, held, canHold;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -156,6 +158,22 @@ function activateTnt() {
   if (collide(current.shape, current.x, current.y)) endGame();
 }
 
+function holdPiece() {
+  if (!canHold || current.type === TNT_TYPE) return;
+  if (!held) {
+    held = makePiece(current.type);
+    spawn();
+  } else {
+    next = makePiece(current.type);
+    current = held;
+    held = null;
+    drawNext();
+    if (collide(current.shape, current.x, current.y)) endGame();
+  }
+  canHold = false;
+  drawHold();
+}
+
 function explode() {
   const top = Math.min(Math.max(current.y - 1, 0), ROWS - TNT_ROWS);
   board.splice(top, TNT_ROWS);
@@ -193,6 +211,7 @@ function lockPiece() {
     merge();
     clearLines();
   }
+  canHold = true;
   spawn();
 }
 
@@ -269,15 +288,24 @@ function draw() {
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
 }
 
-function drawNext() {
+function drawPreview(context, cnv, piece) {
   const NB = 30;
-  nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-  const shape = next.shape;
+  context.clearRect(0, 0, cnv.width, cnv.height);
+  if (!piece) return;
+  const shape = piece.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
   const offY = Math.floor((4 - shape.length) / 2);
   for (let r = 0; r < shape.length; r++)
     for (let c = 0; c < shape[r].length; c++)
-      drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
+      drawBlock(context, offX + c, offY + r, shape[r][c], NB);
+}
+
+function drawNext() {
+  drawPreview(nextCtx, nextCanvas, next);
+}
+
+function drawHold() {
+  drawPreview(holdCtx, holdCanvas, held);
 }
 
 function endGame() {
@@ -330,7 +358,10 @@ function init() {
   dropAccum = 0;
   lastTime = performance.now();
   next = randomPiece();
+  held = null;
+  canHold = true;
   setTntReady(false);
+  drawHold();
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
@@ -358,6 +389,9 @@ document.addEventListener('keydown', e => {
     case 'KeyT':
       activateTnt();
       break;
+    case 'KeyS':
+      holdPiece();
+      break;
     case 'Space':
       e.preventDefault();
       hardDrop();
@@ -375,7 +409,7 @@ function applyTheme(light) {
   themeBtn.textContent = light ? 'Modo oscuro' : 'Modo claro';
   themeBtn.setAttribute('aria-pressed', String(light));
   // el loop está cancelado en pausa/game over: redibujar a mano
-  if (current && next) { draw(); drawNext(); }
+  if (current && next) { draw(); drawNext(); drawHold(); }
 }
 
 themeBtn.addEventListener('click', () => {
